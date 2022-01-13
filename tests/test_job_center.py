@@ -115,7 +115,7 @@ def test_cached_search_results(tmp_path):
     files = [f.name for f in Path(cache_dir).glob("**/*.html")]
     print(files)
     assert len(files) == 2
-    assert files == expected
+    assert sorted(files) == sorted(expected)
 
 
 @pytest.mark.vcr()
