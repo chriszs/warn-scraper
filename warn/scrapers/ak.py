@@ -1,7 +1,4 @@
-import re
 from pathlib import Path
-
-from bs4 import BeautifulSoup
 
 from .. import utils
 
@@ -30,25 +27,11 @@ def scrape(
     # Force encoding to fix dashes, apostrophes, etc. on page.text from requests reponse
     page.encoding = "utf-8"
 
-    # Parse out data table
-    soup = BeautifulSoup(page.text, "html.parser")
-    table = soup.find_all("table")  # output is list-type
+    # Scrape out any tables
+    table_list = utils.parse_tables(page.text)
 
-    # Loop through the table and grab the data
-    output_rows = []
-    for table_row in table[0].find_all("tr"):
-        columns = table_row.find_all("td")
-        output_row = []
-        for column in columns:
-            # Collapse newlines
-            partial = re.sub(r"\n", " ", column.text)
-            # Standardize whitespace
-            clean_text = re.sub(r"\s+", " ", partial)
-            output_row.append(clean_text)
-        output_row = [x.strip() for x in output_row]
-        if output_row == [""] or output_row[0] == "":
-            continue
-        output_rows.append(output_row)
+    # Get rows from the first table
+    output_rows = table_list[0]
 
     # Write out the data to a CSV
     data_path = data_dir / "ak.csv"

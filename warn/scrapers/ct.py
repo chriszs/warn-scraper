@@ -2,8 +2,6 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-from bs4 import BeautifulSoup
-
 from .. import utils
 from ..cache import Cache
 
@@ -51,15 +49,25 @@ def scrape(
             html = r.text
             cache.write(cache_key, html)
 
-        # Parse out the table
-        soup = BeautifulSoup(html, "html.parser")
-        if year == 2016:
-            table = soup.find_all("table", "style15")
-        else:
-            table = soup.find_all("table", "MsoNormalTable")
+        # Set the class to target for the table
+        table_class = "style15" if year == 2016 else "MsoTableNormal"
 
-        # Parse out the data
-        row_list = _scrape_table(table)
+        # Parse out the table
+        table_list = utils.parse_tables(html, include_headers=False, class_=table_class)
+
+        output_rows = []
+
+        for table_rows in table_list:
+            for table_cells in table_rows:
+                if len(table_cells) > 9:
+                    output_row = _merge_problem_cells(table_cells)
+                    row_list.append(output_row)
+                    continue
+                # if a row has less than 9 it is skipped because it is incomplete
+                elif len(table_cells) < 9:
+                    continue
+                else:
+                    output_rows.append(table_cells)
 
         # Add data to the big list
         output_rows.extend(row_list)
@@ -88,58 +96,16 @@ def scrape(
     return data_path
 
 
-def _scrape_table(table) -> list:
-    """Scrape the provided table.
-
-    Returns: List of data rows.
-    """
-    row_list = []
-    # loop over table to process each row, skipping the header
-    for table_row in table[0].find_all("tr")[1:]:
-
-        # Get all the cells
-        table_cells = table_row.find_all("td")
-
-        # if a row has more than 9 cells it is handled separately
-        # the 2016 table has some cells with nested tags
-        if len(table_cells) > 9:
-            output_row = _problem_cells(table_cells)
-            row_list.append(output_row)
-            continue
-        # if a row has less than 9 it is skipped because it is incomplete
-        elif len(table_cells) < 9:
-            continue
-
-        # for the rest, loop over cells for each row
-        output_row = []
-        for table_cell in table_cells:
-            cell = table_cell.text.strip()
-            cell = " ".join(cell.split())
-            output_row.append(cell)
-
-        # test to see if the row is blank
-        if not output_row:
-            continue
-
-        # Add row to the big list
-        row_list.append(output_row)
-
-    # Pass it back
-    logger.debug(f"{len(row_list)} rows parsed")
-    return row_list
-
-
-def _problem_cells(table_cells):
+def _merge_problem_cells(table_cells):
     """Deal with problem rows in the 2016 table."""
     output_row = []
-    for table_cell in table_cells:
-        current_cell = table_cell.text.strip()
+    for i, current_cell in enumerate(table_cells):
         current_cell = " ".join(current_cell.split())
-        if table_cells.index(table_cell) == 0:
+        if i == 0:
             output_row.append(current_cell)
         else:
-            previous_index = table_cells.index(table_cell) - 1
-            previous_cell = table_cells[previous_index].text.strip()
+            previous_index = i - 1
+            previous_cell = table_cells[previous_index]
             previous_cell = " ".join(previous_cell.split())
             if current_cell == previous_cell:
                 continue

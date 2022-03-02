@@ -1,8 +1,5 @@
 import logging
-import re
 from pathlib import Path
-
-from bs4 import BeautifulSoup
 
 from .. import utils
 from ..cache import Cache
@@ -36,7 +33,9 @@ def scrape(
     cache.write("sd/source.html", html)
 
     # Scrape out the data
-    row_list = _parse_table(html)
+    table_list = utils.parse_tables(html)
+
+    row_list = table_list[0]
 
     # Write out
     data_path = data_dir / "sd.csv"
@@ -44,30 +43,6 @@ def scrape(
 
     # Return the path to the CSV
     return data_path
-
-
-def _parse_table(html) -> list:
-    # Parse table
-    soup = BeautifulSoup(html, "html.parser")
-    table_list = soup.find_all("table")
-
-    # We expect the first table to be there with our data
-    assert len(table_list) > 0
-    table = table_list[0]
-
-    # Parse the cells
-    row_list = []
-    for row in table.find_all("tr"):
-        cell_list = []
-        for cell in row.find_all(["th", "td"]):
-            cell = re.sub(r"\s+", " ", cell.text.strip())
-            cell_list.append(cell)
-        if not cell_list:
-            continue
-        row_list.append(cell_list)
-
-    # Return it
-    return row_list
 
 
 if __name__ == "__main__":

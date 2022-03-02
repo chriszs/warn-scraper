@@ -2,8 +2,6 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-from bs4 import BeautifulSoup
-
 from .. import utils
 from ..cache import Cache
 
@@ -50,8 +48,9 @@ def scrape(
             cache.write(warn_key, warn_html)
 
         # Parse the table
-        warn_headers = ["Date", "Company", "Jobs Affected", "City", "Location"]
-        warn_rows = _parse_table(warn_html, warn_headers)
+        table_list = utils.parse_tables(warn_html)
+
+        warn_rows = table_list[0]
 
         # Add it to the big list
         output_rows.extend(warn_rows)
@@ -77,7 +76,7 @@ def scrape(
             "City",
             "Location",
         ]
-        layoff_rows = _parse_table(layoff_html, layoff_headers)
+        layoff_rows = utils.parse_tables(layoff_html)
 
         # Add it to the big list
         output_rows.extend(layoff_rows)
@@ -90,28 +89,6 @@ def scrape(
 
     # Return the path to the CSV
     return data_path
-
-
-def _parse_table(html, headers) -> list:
-    # Parse table
-    soup = BeautifulSoup(html, "html.parser")
-    table_list = soup.find_all("table")
-
-    # We expect the first table to be there with our data
-    assert len(table_list) > 0
-    table = table_list[0]
-
-    # Parse the cells
-    row_list = []
-    for row in table.find_all("tr"):
-        cell_list = row.find_all("td")
-        if not cell_list:
-            continue
-        cell_dict = {headers[i]: c.text.strip() for i, c in enumerate(cell_list)}
-        row_list.append(cell_dict)
-
-    # Return it
-    return row_list
 
 
 if __name__ == "__main__":

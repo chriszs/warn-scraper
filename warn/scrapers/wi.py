@@ -3,8 +3,6 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from bs4 import BeautifulSoup
-
 from .. import utils
 from ..cache import Cache
 
@@ -59,40 +57,13 @@ def scrape(
         html_list.append(html)
 
     output_rows = []
-    for ihtml, html in enumerate(html_list):
+    for i, html in enumerate(html_list):
         # Parse the HTML
-        soup = BeautifulSoup(html, "html5lib")
-
-        # Fish out the tables
-        table_list = soup.find_all("table")
+        table_list = utils.parse_tables(html, include_headers=i == 0)
 
         # Remove the "Updates to Previously Filed Notices" tables
         # We can single them out because they only have two columns
         notice_tables = [t for t in table_list if len(t.find("tr").find_all("th")) > 2]
-
-        # Loop through the tables
-        for itable, table in enumerate(notice_tables):
-            # Get all the rows
-            row_list = table.find_all("tr")
-
-            # If this is the first table on the first page, get headers too
-            tags = ["td"]
-            if ihtml == 0 and itable == 0:
-                tags.append("th")
-
-            for row in row_list:
-                # Pull out the cells and clean them
-                cell_list = [_clean_text(c.text) for c in row.find_all(tags)]
-
-                # Skip empty rows
-                try:
-                    # A list with only empty cell will throw an error
-                    next(i for i in cell_list if i)
-                except StopIteration:
-                    continue
-
-                # Tack what we've got onto the pile
-                output_rows.append(cell_list)
 
     # Set the export path
     data_path = data_dir / "wi.csv"

@@ -72,7 +72,7 @@ def scrape(
             rows_to_add = _scrape_pdf(cache, cache_dir, year_url, headers)
         else:
             html_pages = _scrape_html(cache, year_url, headers)
-            rows_to_add = _html_to_rows(html_pages)
+            rows_to_add = utils.parse_tables(html_pages)
         # Convert rows to dicts
         rows_as_dicts = [dict(zip(FIELDS, row)) for row in rows_to_add]
         output_rows.extend(rows_as_dicts)
@@ -137,23 +137,6 @@ def _scrape_html(cache, url, headers, page=1):
             return pages_html
     # last page reached
     return [page_text]
-
-
-def _html_to_rows(page_text):
-    """Extract data rows from list of html pages."""
-    output_rows = []
-    for page in page_text:
-        soup = BeautifulSoup(page, "html5lib")
-        table = soup.find("table")
-        # extract table data
-        tbody = table.find("tbody")
-        for table_row in tbody.find_all("tr"):
-            columns = table_row.find_all("td")
-            output_row = []
-            for column in columns:
-                output_row.append(column.text.strip())
-            output_rows.append(output_row)
-    return output_rows
 
 
 # download and scrape pdf

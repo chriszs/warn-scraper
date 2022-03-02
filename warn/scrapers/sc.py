@@ -86,7 +86,9 @@ def scrape(
                 for row in real_rows:
 
                     # Clean values
-                    cell_list = [_clean_cell(c) for c in row if _clean_cell(c)]
+                    cell_list = [
+                        utils.clean_text(c) for c in row if utils.clean_text(c)
+                    ]
 
                     # Pluck out the values based on our regex
                     d = {}
@@ -118,13 +120,6 @@ def scrape(
 
     # Return the Path to the CSV
     return data_path
-
-
-def _clean_cell(cell):
-    """Clean the value in the provided cell."""
-    if cell is None:
-        return None
-    return cell.strip().replace("\n", "")
 
 
 if __name__ == "__main__":

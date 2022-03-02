@@ -1,5 +1,4 @@
 import logging
-import re
 from pathlib import Path
 
 import requests
@@ -43,17 +42,7 @@ def scrape(
         cache.write("wa/source.html", html)
 
         # Parse out the headers
-        soup = BeautifulSoup(html, "html5lib")
-        table_list = soup.find_all("table")
-        first_table = table_list[0]
-        first_row = first_table.find_all("tr")[2]
-        th_list = first_row.find_all("th")
-        headers = [_clean_text(th.text) for th in th_list]
-        output_rows.append(headers)
-
-        # Parse the data
-        row_list = _parse_table(first_table)
-        output_rows.extend(row_list)
+        table_list = utils.parse_tables(html)
 
         # Start jumping through the pages
         soup_content = BeautifulSoup(r.content, "html5lib")
@@ -83,11 +72,8 @@ def scrape(
                 cache.write(f"wa/{page}.html", html)
 
                 # Parse out the data
-                soup = BeautifulSoup(html, "html5lib")
-                table_list = soup.find_all("table")
-                first_table = table_list[0]
-                row_list = _parse_table(first_table)
-                output_rows.extend(row_list)
+                table_list = utils.parse_tables(html)
+                row_list[2 : len(row_list) - 2]
 
                 # Up the page number
                 page += 1
@@ -104,29 +90,6 @@ def scrape(
 
     # Return the path to the file
     return data_path
-
-
-def _parse_table(table) -> list:
-    # Parse the cells
-    row_list = []
-    for row in table.find_all("tr"):
-        cell_list = row.find_all(["td"])
-        if not cell_list:
-            continue
-        cell_list = [_clean_text(c.text) for c in cell_list]
-        row_list.append(cell_list)
-
-    # Return it with a slice to cut the cruft
-    return row_list[2 : len(row_list) - 2]
-
-
-def _clean_text(text):
-    """Clean up the provided HTML snippet."""
-    if text is None:
-        return ""
-    text = re.sub(r"\n", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
 
 
 if __name__ == "__main__":

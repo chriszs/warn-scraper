@@ -1,10 +1,12 @@
 import csv
 import logging
 import os
+import re
 import typing
 from pathlib import Path
 
 import requests
+from bs4 import BeautifulSoup
 from openpyxl import load_workbook
 
 logger = logging.getLogger(__name__)
@@ -160,3 +162,71 @@ def parse_excel(excel_path: Path, keep_header: bool = True) -> typing.List[typin
 
     # Pass it back
     return row_list
+
+
+def parse_tables(html: str, **kwargs):
+    """
+    Parse HTML tables.
+
+    Takes any keyword arguments that BeautifulSoup.find_all()
+    takes, including `class_` and `id` element selectors. Also cleans up the
+    output by removing empty rows and stripping whitespace and newlines from the
+    text of each cell.
+
+    Args:
+        html (str): HTML to parse
+
+    Keyword Args:
+        class_ (str): class attribute of the table
+        id (str): id attribute of the table
+        include_headers (bool): whether or not to include the header row in the output
+
+    Returns: List of tables, each table being a list of rows, each row being a list of cell values.
+    """
+    include_headers = kwargs.pop("include_headers", True)
+
+    # Parse out data table
+    soup = BeautifulSoup(html, "html.parser")
+    table_list = soup.find_all("table", **kwargs)  # output is list-type
+
+    # We expect at least one table
+    if len(table_list) == 0:
+        raise ValueError("No tables found")
+
+    cell_tags = ["td"]
+    if include_headers:
+        cell_tags.append("th")
+
+    output_row_lists = []
+
+    for table in table_list:
+        row_list = []
+
+        # Loop through the table and grab the data
+        for table_row in table.find_all("tr"):
+            columns = table_row.find_all(cell_tags)
+            row = [clean_text(column.text) for column in columns]
+
+            # Skip empty rows
+            if any(row):
+                row_list.append(row)
+
+        output_row_lists.append(row_list)
+
+    return output_row_lists
+
+
+def clean_text(text):
+    """
+    Clean up the text by removing extra whitespace and newlines.
+
+    Args:
+        text (str): The text to be cleaned up
+
+    Returns: The cleaned up text
+    """
+    if text is None:
+        return ""
+    text = re.sub(r"\n", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()

@@ -2,6 +2,7 @@ import logging
 import re
 import uuid
 from datetime import datetime
+from itertools import chain
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -80,52 +81,22 @@ def scrape(
         html_list.append(html)
 
     # Parse them all
-    output_rows = []
-    for i, html in enumerate(html_list):
-        soup = BeautifulSoup(html, "html5lib")
+    table_rows = [utils.parse_tables(html)[0] for html in html_list]
 
-        # Pull out the table
-        table_list = soup.find_all("table")
-        assert len(table_list) > 0
-        table = table_list[0]
+    # Get the headers
+    headers = table_rows[0][:1]
 
-        # Get all rows
-        row_list = table.find_all("tr")
-
-        # If it's not the first page, slice off the header
-        if i > 0:
-            row_list = row_list[1:]
-
-        # Loop through all the rows
-        for row in row_list:
-            # Get the cells
-            cell_list = row.find_all(["td", "th"])
-
-            # Clean them up
-            cell_list = [_clean_text(c.text) for c in cell_list]
-
-            # Add to the list if any cell in the row has data
-            # (filters out empty rows)
-            if any(cell_list):
-                output_rows.append(cell_list)
+    # Flatten the list and remove headers
+    output_rows = list(chain.from_iterable(row[1:] for row in table_rows))
 
     # Set the export path
     data_path = data_dir / "dc.csv"
 
     # Write out the file
-    utils.write_rows_to_csv(data_path, output_rows)
+    utils.write_rows_to_csv(data_path, headers + output_rows)
 
     # Return the path to the file
     return data_path
-
-
-def _clean_text(text):
-    """Clean up the provided HTML snippet."""
-    if text is None:
-        return ""
-    text = re.sub(r"\n", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
 
 
 def _extract_year(text):

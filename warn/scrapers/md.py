@@ -1,5 +1,4 @@
 import logging
-import re
 from pathlib import Path
 
 from bs4 import BeautifulSoup
@@ -62,30 +61,11 @@ def scrape(
     # Parse them all
     output_rows = []
     for i, html in enumerate(html_list):
-        soup = BeautifulSoup(html, "html5lib")
+        # Parse the HTML
+        table_list = utils.parse_tables(html, include_headers=i == 0)
 
-        # Pull out the table
-        table_list = soup.find_all("table")
-        assert len(table_list) > 0
-        table = table_list[0]
-
-        # Get all rows
-        row_list = table.find_all("tr")
-
-        # If it's not the first page, slice off the header
-        if i > 0:
-            row_list = row_list[1:]
-
-        # Loop through all the rows
-        for row in row_list:
-            # Get the cells
-            cell_list = row.find_all("td")
-
-            # Clean them up
-            cell_list = [_clean_text(c.text) for c in cell_list]
-
-            # Pass them out
-            output_rows.append(cell_list)
+        # Add the rows
+        output_rows += table_list[0]
 
     # Set the export path
     data_path = data_dir / "md.csv"
@@ -95,15 +75,6 @@ def scrape(
 
     # Return the path to the file
     return data_path
-
-
-def _clean_text(text):
-    """Clean up the provided HTML snippet."""
-    if text is None:
-        return ""
-    text = re.sub(r"\n", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
 
 
 if __name__ == "__main__":

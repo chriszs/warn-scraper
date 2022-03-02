@@ -1,8 +1,5 @@
-import re
 from datetime import datetime
 from pathlib import Path
-
-from bs4 import BeautifulSoup
 
 from .. import utils
 from ..cache import Cache
@@ -54,12 +51,15 @@ def scrape(
             html = page.text
             cache.write(cache_key, html)
 
-        # Scrape out the table
-        new_rows = _parse_table(
+        # Scrape out any tables
+        table_list = utils.parse_tables(
             html,
-            "emplrList",
             include_headers=i == 0,  # After the first loop, we can skip the headers
+            id="emplrList",
         )
+
+        # Get rows from the first table ob the page
+        new_rows = table_list[0]
 
         # Concatenate the rows
         output_rows.extend(new_rows)
@@ -70,52 +70,6 @@ def scrape(
 
     # Return the path to the CSV
     return data_path
-
-
-def _parse_table(html, id, include_headers=True):
-    """
-    Parse HTML table with given ID.
-
-    Keyword arguments:
-    html -- the HTML to parse
-    id -- the ID of the table to parse
-    include_headers -- whether to include the headers in the output (default True)
-
-    Returns: a list of rows
-    """
-    # Parse out data table
-    soup = BeautifulSoup(html, "html.parser")
-    table_list = soup.find_all(id=id)  # output is list-type
-
-    # We expect the first table to be there with our data
-    assert len(table_list) > 0
-    table = table_list[0]
-
-    output_rows = []
-    column_tags = ["td"]
-
-    if include_headers:
-        column_tags.append("th")
-
-    # Loop through the table and grab the data
-    for table_row in table.find_all("tr"):
-        columns = table_row.find_all(column_tags)
-        output_row = []
-
-        for column in columns:
-            # Collapse newlines
-            partial = re.sub(r"\n", " ", column.text)
-            # Standardize whitespace
-            clean_text = re.sub(r"\s+", " ", partial).strip()
-            output_row.append(clean_text)
-
-        # Skip any empty rows
-        if len(output_row) == 0 or output_row == [""]:
-            continue
-
-        output_rows.append(output_row)
-
-    return output_rows
 
 
 if __name__ == "__main__":

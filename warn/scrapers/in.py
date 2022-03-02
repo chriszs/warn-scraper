@@ -1,8 +1,6 @@
 import logging
 from pathlib import Path
 
-from bs4 import BeautifulSoup
-
 from .. import utils
 from ..cache import Cache
 
@@ -35,15 +33,9 @@ def scrape(
     cache.write("in/latest.html", latest_html)
 
     # Parse tables
-    latest_soup = BeautifulSoup(latest_html, "html.parser")
-    latest_tables = latest_soup.find_all("table")
+    latest_tables = utils.parse_tables(latest_html)
 
-    # Scrape table
-    output_rows = []
-    for i, table in enumerate(latest_tables):
-        row_list = _parse_table(table, include_headers=i == 0)
-        logger.debug(f"Scraped {len(row_list)} rows latest table {i+1}")
-        output_rows.extend(row_list)
+    output_rows = latest_tables[0]
 
     # Get the archive tables
     archive_url = "https://www.in.gov/dwd/3125.htm"
@@ -51,15 +43,9 @@ def scrape(
     archive_html = r.text
     cache.write("in/archive.html", archive_html)
 
-    # Parse tables
-    archive_soup = BeautifulSoup(archive_html, "html.parser")
-    archive_tables = archive_soup.find_all("table")
+    table_list = utils.parse_table(archive_html, include_headers=False)
 
-    # Scrape table
-    for i, table in enumerate(archive_tables):
-        row_list = _parse_table(table, include_headers=False)
-        logger.debug(f"Scraped {len(row_list)} rows latest table {i+1}")
-        output_rows.extend(row_list)
+    output_rows += table_list[0]
 
     # Write out
     data_path = data_dir / "in.csv"
@@ -67,25 +53,6 @@ def scrape(
 
     # Return the path to the CSV
     return data_path
-
-
-def _parse_table(table, include_headers) -> list:
-    # Parse the cells
-    row_list = []
-    tags = [
-        "td",
-    ]
-    if include_headers:
-        tags.append("th")
-    for row in table.find_all("tr"):
-        cell_list = row.find_all(tags)
-        if not cell_list:
-            continue
-        cell_list = [c.text.strip() for c in cell_list]
-        row_list.append(cell_list)
-
-    # Return it
-    return row_list
 
 
 if __name__ == "__main__":

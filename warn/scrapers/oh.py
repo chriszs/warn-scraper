@@ -74,8 +74,10 @@ def scrape(
             # Parse the PDF
             row_list += _parse_pdf(file_path)
         else:
+            html = open(file_path).read()
+
             # Parse the HTML
-            row_list += _parse_html(file_path)
+            row_list += utils.parse_tables(html)[0]
 
     header = list(filter(_is_header, row_list))[0]
     output_rows = [header] + list(filter(lambda row: not _is_header(row), row_list))
@@ -86,39 +88,6 @@ def scrape(
 
     # Return the path to the CSV
     return data_path
-
-
-def _parse_html(file_path: Path) -> list:
-    """
-    Parse the table from the HTML.
-
-    Keyword arguments:
-    file_path -- the Path to the HTML file
-
-    Returns: a list of lists of strings
-    """
-    # Get the HTML
-    html = open(file_path).read()
-
-    # Parse table
-    soup = BeautifulSoup(html, "html.parser")
-    table_list = soup.find_all("table")
-
-    # We expect the first table to be there with our data
-    assert len(table_list) > 0
-    table = table_list[1]
-
-    # Parse the cells
-    row_list = []
-    for row in table.find_all("tr"):
-        cell_list = row.find_all(["th", "td"])
-        if not cell_list:
-            continue
-        cell_list = [c.text.strip() for c in cell_list]
-        row_list.append(cell_list)
-
-    # Return it
-    return row_list
 
 
 def _parse_pdf(pdf_path: Path) -> list:
@@ -140,7 +109,7 @@ def _parse_pdf(pdf_path: Path) -> list:
             for row_index, row in enumerate(rows):
                 output_row = []
                 for col_index, column in enumerate(row):
-                    clean_text = _clean_text(column)
+                    clean_text = utils.clean_text(column)
 
                     # If cell is empty, copy from the cell above it
                     # to deal with merged cells. Except for numbers, e.g. of employees,
@@ -159,23 +128,6 @@ def _parse_pdf(pdf_path: Path) -> list:
                 row_list.append(output_row)
 
     return row_list
-
-
-def _clean_text(text: str) -> str:
-    """
-    Clean up text from a PDF cell.
-
-    Keyword arguments:
-    text -- the text to clean
-
-    Returns: the cleaned text
-    """
-    if text is None:
-        return ""
-    # Collapse newlines
-    partial = re.sub(r"\n", " ", text)
-    # Standardize whitespace
-    return re.sub(r"\s+", " ", partial)
 
 
 def _is_header(row: list) -> bool:
